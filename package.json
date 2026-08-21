@@ -1,0 +1,25 @@
+{
+  "name": "qscriptions-workspace",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Workspace for the Qscriptions frozen-QPET core.",
+  "type": "module",
+  "packageManager": "npm@11.11.0",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspace qscriptions",
+    "typecheck": "npm run typecheck --workspace qscriptions",
+    "test": "npm run test --workspace qscriptions",
+    "test:coverage": "npm run test:coverage --workspace qscriptions",
+    "check": "npm run build && npm run typecheck && npm run test:coverage",
+    "test:tarball": "node scripts/test-tarball.mjs"
+  },
+  "devDependencies": {
+    "typescript": "7.0.2"
+  }
+}
