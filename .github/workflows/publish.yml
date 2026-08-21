@@ -1,0 +1,153 @@
+name: Publish core package
+
+on:
+  push:
+    tags:
+      - core-v*
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publish-core-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  verify:
+    name: Verify and pack (Node 24)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Run repository checks
+        run: npm run check
+
+      - name: Pack and test the release archive
+        id: pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          artifact_dir="${RUNNER_TEMP}/qscriptions-core"
+          mkdir -p "$artifact_dir"
+          npm pack --workspace packages/core --pack-destination "$artifact_dir"
+
+          shopt -s nullglob
+          archives=("$artifact_dir"/*.tgz)
+          if [[ "${#archives[@]}" -ne 1 ]]; then
+            echo "Expected exactly one package archive, found ${#archives[@]}" >&2
+            exit 1
+          fi
+          tarball="${archives[0]}"
+
+          if tar -tf "$tarball" | grep -Eq '(^|/)(fixtures?|tests?)(/|$)|\.webp$'; then
+            echo "Repository-only tests, fixtures, or WebP assets leaked into the npm archive" >&2
+            exit 1
+          fi
+
+          npm run test:tarball -- "$tarball"
+          (
+            cd "$artifact_dir"
+            sha256sum "$(basename "$tarball")" > SHA256SUMS
+          )
+          printf 'artifact_dir=%s\n' "$artifact_dir" >> "$GITHUB_OUTPUT"
+
+      - name: Upload the exact tested archive
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: qscriptions-core-${{ github.sha }}
+          path: ${{ steps.pack.outputs.artifact_dir }}
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish tested archive with npm OIDC
+    needs: verify
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      npm_config_registry: https://registry.npmjs.org
+
+    steps:
+      - name: Set up Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: 24
+
+      - name: Download the tested archive
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: qscriptions-core-${{ github.sha }}
+          path: release
+
+      - name: Verify archive, version, and npm client
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+          (
+            cd release
+            sha256sum --check SHA256SUMS
+          )
+
+          shopt -s nullglob
+          archives=(release/*.tgz)
+          if [[ "${#archives[@]}" -ne 1 ]]; then
+            echo "Expected exactly one downloaded archive, found ${#archives[@]}" >&2
+            exit 1
+          fi
+          tarball="${archives[0]}"
+          package_version="$(tar -xOf "$tarball" package/package.json | node -e '
+            let input = "";
+            process.stdin.setEncoding("utf8");
+            process.stdin.on("data", (chunk) => { input += chunk; });
+            process.stdin.on("end", () => { process.stdout.write(JSON.parse(input).version); });
+          ')"
+
+          if [[ "${GITHUB_REF_NAME}" != "core-v${package_version}" ]]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match package version ${package_version}" >&2
+            exit 1
+          fi
+
+          if [[ "$package_version" == *-* ]]; then
+            prerelease="${package_version#*-}"
+            channel="${prerelease%%.*}"
+            case "$channel" in
+              canary) dist_tag=canary ;;
+              alpha|beta|rc) dist_tag=next ;;
+              *) dist_tag=next ;;
+            esac
+          else
+            dist_tag=latest
+          fi
+
+          npm_version="$(npm --version)"
+          node -e '
+            const [major, minor, patch] = process.argv[1].split(".").map(Number);
+            if (major < 11 || (major === 11 && minor < 5) ||
+                (major === 11 && minor === 5 && patch < 1)) {
+              throw new Error("npm " + process.argv[1] + " cannot use trusted publishing; require >=11.5.1");
+            }
+          ' "$npm_version"
+
+          printf 'tarball=%s\n' "$tarball" >> "$GITHUB_OUTPUT"
+          printf 'dist_tag=%s\n' "$dist_tag" >> "$GITHUB_OUTPUT"
+
+      - name: Publish with trusted publishing
+        run: npm publish "${{ steps.release.outputs.tarball }}" --access public --provenance --tag "${{ steps.release.outputs.dist_tag }}"
