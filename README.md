@@ -16,20 +16,20 @@ Networking, transaction reconstruction, browser media decoding, Blob URLs, UI, w
 
 ## Install
 
-The first public API will ship on the `alpha` tag. `canary` releases prove the tokenless npm trusted-publishing path and should not be used as an API contract.
+The first public API will ship on the `next` tag. `canary` releases prove the tokenless npm trusted-publishing path and should not be used as an API contract.
 
 ```bash
-npm install qscriptions@alpha
+npm install qscriptions@next
 ```
 
 ## Trust model
 
 The core verifies bytes supplied by its caller. It does not claim where those bytes came from, confirm chain inclusion, or hardcode the Genesis mascot's hashes. Applications own transport and chain evidence, then compare any artifact-specific expected identity after generic QPET validation succeeds.
 
-Published packages are built in public GitHub Actions, tested as exact tarballs, and released through npm trusted publishing with provenance and no long-lived registry token. Canonical fixtures remain in this repository and are explicitly excluded from the npm tarball.
+Published packages are built in public GitHub Actions and tested as exact tarballs. The one-time `0.0.0-canary.0` namespace bootstrap is manually uploaded from that CI artifact because npm cannot configure trusted publishing before a package exists; it carries no provenance and is not an API release. `0.0.0-canary.1` and every later release use npm trusted publishing with provenance and no long-lived registry token. Canonical fixtures remain in this repository and are explicitly excluded from the npm tarball.
 
 ## Contributing
 
-Start with [CONTRIBUTING.md](CONTRIBUTING.md) once the repository foundation lands. Security reports belong in GitHub private vulnerability reporting, not public issues.
+Start with [CONTRIBUTING.md](CONTRIBUTING.md). Security reports belong in GitHub private vulnerability reporting, not public issues.
 
 MIT licensed. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for fixture provenance.

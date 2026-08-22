@@ -1,6 +1,6 @@
 {
   "name": "qscriptions",
-  "version": "0.0.0-canary.0",
+  "version": "0.0.0-canary.1",
   "description": "Dependency-free, byte-exact verification for frozen QPET inscriptions on Qbit.",
   "license": "MIT",
   "type": "module",
