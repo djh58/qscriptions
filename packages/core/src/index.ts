@@ -22,10 +22,13 @@ export type {
 } from "./result.js";
 export type {
   QscriptionAnchorProof,
+  QscriptionArtifactIdentity,
   QscriptionArtifactRecord,
   QscriptionAttestationSource,
+  QscriptionByteValidContentProof,
   QscriptionChainLocator,
   QscriptionChainProof,
+  QscriptionContentHashes,
   QscriptionContentProof,
   QscriptionContentStatus,
   QscriptionEvidence,

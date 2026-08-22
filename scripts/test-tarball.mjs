@@ -104,12 +104,39 @@ try {
 
   await writeFile(
     join(consumer, "consumer.ts"),
-    `import { decodeQpetEnvelope, type QpetResult, type QpetArtifact, type QscriptionProof } from "qscriptions";\n` +
+    `import { decodeQpetEnvelope, type QpetResult, type QpetArtifact, type QscriptionAnchorProof, type QscriptionArtifactRecord, type QscriptionChainProof, type QscriptionContentProof, type QscriptionInclusionProof, type QscriptionProof, type QscriptionTransactionProof } from "qscriptions";\n` +
       `const pending: Promise<QpetResult<QpetArtifact>> = decodeQpetEnvelope(new Uint8Array());\n` +
       `const proof: QscriptionProof = { content: { status: "unfetched" }, transaction: { status: "unverified" }, media: { status: "unchecked" }, chain: { status: "unknown", attestationSource: "none", inclusion: { status: "unchecked", method: "none" }, anchor: { status: "unchecked", method: "none" } } };\n` +
+      `const validContent: QscriptionContentProof = { status: "byte-valid", contentId: "qscr:sha256:envelope", hashes: { envelopeSha256: "envelope", bodySha256: "body" } };\n` +
+      `// @ts-expect-error byte-valid content requires both envelope and body hashes\n` +
+      `const contentWithoutHashes: QscriptionContentProof = { status: "byte-valid", contentId: "qscr:sha256:envelope" };\n` +
+      `// @ts-expect-error id-verified transaction evidence requires both transaction IDs\n` +
+      `const transactionWithoutIds: QscriptionTransactionProof = { status: "id-verified" };\n` +
+      `// @ts-expect-error mismatch transaction evidence also requires both transaction IDs\n` +
+      `const mismatchWithoutIds: QscriptionTransactionProof = { status: "mismatch", requestedTxid: "requested" };\n` +
       `// @ts-expect-error verified inclusion cannot use the none method\n` +
-      `const contradictory: QscriptionProof = { ...proof, chain: { ...proof.chain, inclusion: { status: "verified", method: "none" } } };\n` +
-      `void pending; void proof; void contradictory;\n`,
+      `const inclusionWithoutMethod: QscriptionInclusionProof = { status: "verified", method: "none" };\n` +
+      `// @ts-expect-error an invalid inclusion check must name the method that failed\n` +
+      `const invalidInclusionWithoutMethod: QscriptionInclusionProof = { status: "invalid", method: "none" };\n` +
+      `// @ts-expect-error verified anchor cannot use the none method\n` +
+      `const anchorWithoutMethod: QscriptionAnchorProof = { status: "verified", method: "none", genesisHash: "genesis" };\n` +
+      `// @ts-expect-error an invalid anchor check must name the method that failed\n` +
+      `const invalidAnchorWithoutMethod: QscriptionAnchorProof = { status: "invalid", method: "none" };\n` +
+      `// @ts-expect-error confirmed chain evidence requires a positive attestation source\n` +
+      `const confirmedWithoutAttestation: QscriptionChainProof = { status: "confirmed", attestationSource: "none", blockHash: "block", height: 1, inclusion: { status: "unchecked", method: "none" }, anchor: { status: "unchecked", method: "none" } };\n` +
+      `// @ts-expect-error confirmed chain evidence requires block identity facts\n` +
+      `const confirmedWithoutBlock: QscriptionChainProof = { status: "confirmed", attestationSource: "public-explorer", inclusion: { status: "unchecked", method: "none" }, anchor: { status: "unchecked", method: "none" } };\n` +
+      `declare const artifact: QpetArtifact;\n` +
+      `const record: QscriptionArtifactRecord<QpetArtifact> = { artifact, proof: { ...proof, content: { status: "byte-valid", contentId: artifact.contentId, hashes: { envelopeSha256: artifact.hashes.envelopeSha256, bodySha256: artifact.bodySha256 } } } };\n` +
+      `// @ts-expect-error an artifact record cannot carry an unfetched content proof\n` +
+      `const artifactWithoutByteProof: QscriptionArtifactRecord<QpetArtifact> = { artifact, proof };\n` +
+      `type LiteralArtifact = { readonly contentId: "qscr:sha256:artifact-envelope"; readonly bodySha256: "artifact-body"; readonly hashes: { readonly envelopeSha256: "artifact-envelope" } };\n` +
+      `declare const literalArtifact: LiteralArtifact;\n` +
+      `// @ts-expect-error a literal artifact record cannot claim another content ID\n` +
+      `const recordWithWrongIdentity: QscriptionArtifactRecord<LiteralArtifact> = { artifact: literalArtifact, proof: { ...proof, content: { status: "byte-valid", contentId: "qscr:sha256:other-envelope", hashes: { envelopeSha256: "artifact-envelope", bodySha256: "artifact-body" } } } };\n` +
+      `// @ts-expect-error a literal artifact record cannot claim another body hash\n` +
+      `const recordWithWrongHash: QscriptionArtifactRecord<LiteralArtifact> = { artifact: literalArtifact, proof: { ...proof, content: { status: "byte-valid", contentId: "qscr:sha256:artifact-envelope", hashes: { envelopeSha256: "artifact-envelope", bodySha256: "other-body" } } } };\n` +
+      `void pending; void proof; void validContent; void record;\n`,
   );
   await writeFile(
     join(consumer, "tsconfig.json"),

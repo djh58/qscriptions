@@ -9,14 +9,23 @@ interface CheckedEvidence {
   readonly checkedAt?: string;
 }
 
+/** Digests established by a successful byte-level envelope validation. */
+export interface QscriptionContentHashes {
+  readonly envelopeSha256: string;
+  readonly bodySha256: string;
+}
+
+export interface QscriptionByteValidContentProof extends CheckedEvidence {
+  readonly status: "byte-valid";
+  readonly contentId: `qscr:sha256:${string}`;
+  readonly hashes: QscriptionContentHashes;
+}
+
 export type QscriptionContentProof =
   | (CheckedEvidence & {
       readonly status: "unfetched" | "source-received" | "envelope-located";
     })
-  | (CheckedEvidence & {
-      readonly status: "byte-valid";
-      readonly contentId: `qscr:sha256:${string}`;
-    })
+  | QscriptionByteValidContentProof
   | (CheckedEvidence & {
       readonly status: "invalid";
       readonly errorCode: string;
@@ -137,7 +146,41 @@ export interface QscriptionEvidence {
   readonly locator?: QscriptionChainLocator;
 }
 
-/** One normalized consumer shape after a caller attaches its independently checked evidence. */
-export interface QscriptionArtifactRecord<TArtifact> extends QscriptionEvidence {
+/** The identity fields a decoded artifact contributes to a byte-valid proof. */
+export interface QscriptionArtifactIdentity {
+  readonly contentId: `qscr:sha256:${string}`;
+  readonly bodySha256: string;
+  readonly hashes: {
+    readonly envelopeSha256: string;
+  };
+}
+
+type QscriptionArtifactProof<TArtifact extends QscriptionArtifactIdentity> = Omit<
+  QscriptionProof,
+  "content"
+> & {
+  readonly content: Omit<
+    QscriptionByteValidContentProof,
+    "contentId" | "hashes"
+  > & {
+    readonly contentId: TArtifact["contentId"];
+    readonly hashes: {
+      readonly envelopeSha256: TArtifact["hashes"]["envelopeSha256"];
+      readonly bodySha256: TArtifact["bodySha256"];
+    };
+  };
+};
+
+/**
+ * Normalized consumer shape after a caller attaches independently checked evidence.
+ *
+ * The decoder deliberately returns only `TArtifact`. Constructing this record is a
+ * caller-owned trust-boundary operation after the artifact identity and evidence
+ * values have been compared.
+ */
+export interface QscriptionArtifactRecord<
+  TArtifact extends QscriptionArtifactIdentity = QscriptionArtifactIdentity,
+> extends Omit<QscriptionEvidence, "proof"> {
   readonly artifact: TArtifact;
+  readonly proof: QscriptionArtifactProof<TArtifact>;
 }

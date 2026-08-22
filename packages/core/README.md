@@ -42,6 +42,8 @@ The core proves internal byte consistency: QPET framing and schema, declared bod
 
 The Genesis application additionally pins its expected content ID. Generic callers should not mistake “valid QPET” for “the Qbit Genesis artifact.”
 
-The package exports shared `QscriptionProof`, `QscriptionSource`, and `QscriptionChainLocator` types so callers can represent byte validity, transaction identity, media validation, source attestation, and chain evidence independently. The decoder returns no source or chain claim; applications enrich those evidence types only after performing the corresponding checks.
+The package exports shared `QscriptionProof`, `QscriptionSource`, and `QscriptionChainLocator` types so callers can represent byte validity, transaction identity, media validation, source attestation, and chain evidence independently. A `byte-valid` content proof carries the content ID plus the independently checked envelope and body hashes. Verified transaction, inclusion, anchor, and confirmed-chain variants likewise require their identifying methods and facts.
+
+`QscriptionArtifactRecord<TArtifact>` is the normalized consumer shape for combining a decoded artifact with caller-owned evidence. It accepts only a `byte-valid` content proof and ties that proof's identity fields to the artifact's identity field types. Callers still compare dynamic string values at their trust boundary; TypeScript cannot prove equality between two runtime digests. The decoder returns no source or chain claim and never constructs this record itself.
 
 See the [repository](https://github.com/djh58/qscriptions) for canonical fixtures, the compatibility boundary, security policy, and release evidence.
