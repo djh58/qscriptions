@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: publish-core-${{ github.ref }}
+  group: publish-core
   cancel-in-progress: false
 
 jobs:
@@ -22,19 +22,40 @@ jobs:
       - name: Check out tagged source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          fetch-depth: 0
           persist-credentials: false
+
+      - name: Check out the exact Python QPET oracle
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: djh58/qbit-onchain-pet
+          ref: 2edd622274865378081c3eb1c0e289af380f6821
+          path: .oracle/qbit-onchain-pet
+          persist-credentials: false
+
+      - name: Require the tagged commit to be on main
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" refs/remotes/origin/main; then
+            echo "Tagged commit ${GITHUB_SHA} is not part of protected main" >&2
+            exit 1
+          fi
 
       - name: Set up Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
-          cache: npm
+          package-manager-cache: false
 
       - name: Install dependencies
         run: npm ci --ignore-scripts
 
       - name: Run repository checks
         run: npm run check
+
+      - name: Compare with the exact-pinned Python oracle
+        run: npm run test:python-parity -- "$GITHUB_WORKSPACE/.oracle/qbit-onchain-pet/qpet.py"
 
       - name: Pack and test the release archive
         id: pack
@@ -89,6 +110,7 @@ jobs:
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: 24
+          package-manager-cache: false
 
       - name: Download the tested archive
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1

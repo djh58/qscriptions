@@ -3,7 +3,7 @@
 ## Codex Pet Share
 
 The QPET v1 animation state table used by repository parity fixtures is adapted
-from [Codex Pet Share](https://github.com/portons/codex-pet-share),
+from [Codex Pet Share at commit `22725091da2787e8e525c9289cb7826a34be4950`](https://github.com/portons/codex-pet-share/tree/22725091da2787e8e525c9289cb7826a34be4950),
 `src/playground/core/config.ts`.
 
 Copyright (c) 2026 Codex Pet Share contributors
