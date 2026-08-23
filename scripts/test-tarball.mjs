@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { basename, isAbsolute, join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { basename, dirname, isAbsolute, join } from "node:path";
+import { fileURLToPath } from "node:url";
 
 const EXPECTED_PACKAGE = "qscriptions";
+const SCRIPT_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
 const FORBIDDEN_DIGESTS = [
+  "852748890119300166f0c3050da3fee5c55316d199bcff1425424c009d2e62b9",
   "e9a9ce232eeee3657e87053edf27b0b1f5493c9111d9a37c41fc5cdb85a24247",
   "8ea6a2514e745bc4393f9a46cb37d207c2448c716e331143cb80ba14b0654333",
 ];
@@ -36,8 +38,25 @@ const packageJson = JSON.parse(
   execFileSync("tar", ["-xOzf", tarball, "package/package.json"], { encoding: "utf8" }),
 );
 assert.equal(packageJson.name, EXPECTED_PACKAGE);
-assert.deepEqual(packageJson.dependencies ?? {}, {});
 assert.equal(packageJson.type, "module");
+for (const field of [
+  "dependencies",
+  "optionalDependencies",
+  "peerDependencies",
+  "bundledDependencies",
+  "bundleDependencies",
+]) {
+  const declaration = packageJson[field];
+  assert.ok(
+    declaration === undefined ||
+      (Array.isArray(declaration)
+        ? declaration.length === 0
+        : typeof declaration === "object" &&
+          declaration !== null &&
+          Object.keys(declaration).length === 0),
+    `${field} must be absent or empty`,
+  );
+}
 
 const unpackedText = entries
   .filter((entry) => !entry.endsWith("/"))
@@ -61,8 +80,82 @@ try {
   );
   const installed = JSON.parse(await readFile(join(consumer, "node_modules", EXPECTED_PACKAGE, "package.json"), "utf8"));
   assert.equal(installed.name, EXPECTED_PACKAGE);
-  const module = await import(pathToFileURL(join(consumer, "node_modules", EXPECTED_PACKAGE, "dist", "index.js")));
-  assert.ok(Object.keys(module).length > 0, "packed module must expose at least one API symbol");
+  await writeFile(
+    join(consumer, "consumer.mjs"),
+    `import assert from "node:assert/strict";\n` +
+      `import * as qscriptions from "qscriptions";\n` +
+      `assert.deepEqual(Object.keys(qscriptions).sort(), ["QPET_LIMITS", "QPET_VERSION", "decodeQpetEnvelope", "decodeQpetOpReturn", "extractQpetEnvelope"]);\n` +
+      `const sheet = new TextEncoder().encode("RIFF\\0\\0\\0\\0WEBPclean-consumer");\n` +
+      `const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", sheet));\n` +
+      `const sha256 = Array.from(digest, (byte) => byte.toString(16).padStart(2, "0")).join("");\n` +
+      `const manifest = { format: "codex-pet-v1", id: "consumer-pet", displayName: "Consumer Pet", description: "Constructed outside the package.", kind: "object", author: "clean-consumer", frame: { width: 1, height: 1, columns: 1, rows: 1 }, states: [{ id: "idle", row: 0, frames: 1, fps: 1, loop: true }], sheet: { contentType: "image/webp", length: sheet.byteLength, sha256 } };\n` +
+      `const manifestBytes = new TextEncoder().encode(JSON.stringify(manifest));\n` +
+      `const envelope = new Uint8Array(7 + manifestBytes.byteLength + sheet.byteLength);\n` +
+      `envelope.set([0x51, 0x50, 0x45, 0x54, 0x01], 0);\n` +
+      `new DataView(envelope.buffer).setUint16(5, manifestBytes.byteLength, true);\n` +
+      `envelope.set(manifestBytes, 7);\n` +
+      `envelope.set(sheet, 7 + manifestBytes.byteLength);\n` +
+      `const decoded = await qscriptions.decodeQpetEnvelope(envelope);\n` +
+      `assert.equal(decoded.ok, true);\n` +
+      `assert.equal(decoded.value.manifest.id, "consumer-pet");\n` +
+      `assert.equal(decoded.value.bodySha256, sha256);\n`,
+  );
+  execFileSync(process.execPath, ["consumer.mjs"], { cwd: consumer, stdio: "inherit" });
+
+  await writeFile(
+    join(consumer, "consumer.ts"),
+    `import { decodeQpetEnvelope, type QpetResult, type QpetArtifact, type QscriptionAnchorProof, type QscriptionArtifactRecord, type QscriptionChainProof, type QscriptionContentProof, type QscriptionInclusionProof, type QscriptionProof, type QscriptionTransactionProof } from "qscriptions";\n` +
+      `const pending: Promise<QpetResult<QpetArtifact>> = decodeQpetEnvelope(new Uint8Array());\n` +
+      `const proof: QscriptionProof = { content: { status: "unfetched" }, transaction: { status: "unverified" }, media: { status: "unchecked" }, chain: { status: "unknown", attestationSource: "none", inclusion: { status: "unchecked", method: "none" }, anchor: { status: "unchecked", method: "none" } } };\n` +
+      `const validContent: QscriptionContentProof = { status: "byte-valid", contentId: "qscr:sha256:envelope", hashes: { envelopeSha256: "envelope", bodySha256: "body" } };\n` +
+      `// @ts-expect-error byte-valid content requires both envelope and body hashes\n` +
+      `const contentWithoutHashes: QscriptionContentProof = { status: "byte-valid", contentId: "qscr:sha256:envelope" };\n` +
+      `// @ts-expect-error id-verified transaction evidence requires both transaction IDs\n` +
+      `const transactionWithoutIds: QscriptionTransactionProof = { status: "id-verified" };\n` +
+      `// @ts-expect-error mismatch transaction evidence also requires both transaction IDs\n` +
+      `const mismatchWithoutIds: QscriptionTransactionProof = { status: "mismatch", requestedTxid: "requested" };\n` +
+      `// @ts-expect-error verified inclusion cannot use the none method\n` +
+      `const inclusionWithoutMethod: QscriptionInclusionProof = { status: "verified", method: "none" };\n` +
+      `// @ts-expect-error an invalid inclusion check must name the method that failed\n` +
+      `const invalidInclusionWithoutMethod: QscriptionInclusionProof = { status: "invalid", method: "none" };\n` +
+      `// @ts-expect-error verified anchor cannot use the none method\n` +
+      `const anchorWithoutMethod: QscriptionAnchorProof = { status: "verified", method: "none", genesisHash: "genesis" };\n` +
+      `// @ts-expect-error an invalid anchor check must name the method that failed\n` +
+      `const invalidAnchorWithoutMethod: QscriptionAnchorProof = { status: "invalid", method: "none" };\n` +
+      `// @ts-expect-error confirmed chain evidence requires a positive attestation source\n` +
+      `const confirmedWithoutAttestation: QscriptionChainProof = { status: "confirmed", attestationSource: "none", blockHash: "block", height: 1, inclusion: { status: "unchecked", method: "none" }, anchor: { status: "unchecked", method: "none" } };\n` +
+      `// @ts-expect-error confirmed chain evidence requires block identity facts\n` +
+      `const confirmedWithoutBlock: QscriptionChainProof = { status: "confirmed", attestationSource: "public-explorer", inclusion: { status: "unchecked", method: "none" }, anchor: { status: "unchecked", method: "none" } };\n` +
+      `declare const artifact: QpetArtifact;\n` +
+      `const record: QscriptionArtifactRecord<QpetArtifact> = { artifact, proof: { ...proof, content: { status: "byte-valid", contentId: artifact.contentId, hashes: { envelopeSha256: artifact.hashes.envelopeSha256, bodySha256: artifact.bodySha256 } } } };\n` +
+      `// @ts-expect-error an artifact record cannot carry an unfetched content proof\n` +
+      `const artifactWithoutByteProof: QscriptionArtifactRecord<QpetArtifact> = { artifact, proof };\n` +
+      `type LiteralArtifact = { readonly contentId: "qscr:sha256:artifact-envelope"; readonly bodySha256: "artifact-body"; readonly hashes: { readonly envelopeSha256: "artifact-envelope" } };\n` +
+      `declare const literalArtifact: LiteralArtifact;\n` +
+      `// @ts-expect-error a literal artifact record cannot claim another content ID\n` +
+      `const recordWithWrongIdentity: QscriptionArtifactRecord<LiteralArtifact> = { artifact: literalArtifact, proof: { ...proof, content: { status: "byte-valid", contentId: "qscr:sha256:other-envelope", hashes: { envelopeSha256: "artifact-envelope", bodySha256: "artifact-body" } } } };\n` +
+      `// @ts-expect-error a literal artifact record cannot claim another body hash\n` +
+      `const recordWithWrongHash: QscriptionArtifactRecord<LiteralArtifact> = { artifact: literalArtifact, proof: { ...proof, content: { status: "byte-valid", contentId: "qscr:sha256:artifact-envelope", hashes: { envelopeSha256: "artifact-envelope", bodySha256: "other-body" } } } };\n` +
+      `void pending; void proof; void validContent; void record;\n`,
+  );
+  await writeFile(
+    join(consumer, "tsconfig.json"),
+    `${JSON.stringify({
+      compilerOptions: {
+        module: "NodeNext",
+        moduleResolution: "NodeNext",
+        noEmit: true,
+        strict: true,
+        target: "ES2022",
+      },
+      files: ["consumer.ts"],
+    }, null, 2)}\n`,
+  );
+  execFileSync(
+    process.execPath,
+    [join(SCRIPT_ROOT, "node_modules", "typescript", "bin", "tsc"), "-p", "tsconfig.json"],
+    { cwd: consumer, stdio: "inherit" },
+  );
 } finally {
   await rm(consumer, { recursive: true, force: true });
 }

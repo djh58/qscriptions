@@ -26,6 +26,14 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Check out the exact Python QPET oracle
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: djh58/qbit-onchain-pet
+          ref: 2edd622274865378081c3eb1c0e289af380f6821
+          path: .oracle/qbit-onchain-pet
+          persist-credentials: false
+
       - name: Set up minimum supported Node.js
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
@@ -37,6 +45,9 @@ jobs:
 
       - name: Run repository checks
         run: npm run check
+
+      - name: Compare with the exact-pinned Python oracle
+        run: npm run test:python-parity -- "$GITHUB_WORKSPACE/.oracle/qbit-onchain-pet/qpet.py"
 
   check:
     name: Check and pack (Node 24)

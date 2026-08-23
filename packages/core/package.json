@@ -1,6 +1,6 @@
 {
   "name": "qscriptions",
-  "version": "0.0.0-canary.2",
+  "version": "0.1.0-alpha.0",
   "description": "Dependency-free, byte-exact verification for frozen QPET inscriptions on Qbit.",
   "license": "MIT",
   "type": "module",
@@ -25,7 +25,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --test test/*.test.mjs",
-    "test:coverage": "node --test --experimental-test-coverage --test-coverage-lines=100 --test-coverage-functions=100 --test-coverage-branches=100 test/*.test.mjs"
+    "test:coverage": "node --test --experimental-test-coverage --test-coverage-include=dist/*.js --test-coverage-lines=100 --test-coverage-functions=100 --test-coverage-branches=100 test/*.test.mjs"
   },
   "publishConfig": {
     "access": "public",

@@ -1,0 +1,48 @@
+name: Bug report
+description: Report a reproducible decoder, packaging, or documentation problem.
+title: "bug: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: >-
+        Do not post vulnerabilities or harmful inscription payloads here. Use
+        private vulnerability reporting from the Security tab instead.
+  - type: input
+    id: version
+    attributes:
+      label: qscriptions version
+      placeholder: 0.1.0-alpha.0
+    validations:
+      required: true
+  - type: dropdown
+    id: runtime
+    attributes:
+      label: Runtime
+      options:
+        - Node.js
+        - Browser
+        - Web Worker
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Include public, non-sensitive bytes or a small script when safe.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true

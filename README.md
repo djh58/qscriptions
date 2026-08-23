@@ -16,7 +16,7 @@ Networking, transaction reconstruction, browser media decoding, Blob URLs, UI, w
 
 ## Install
 
-The first public API will ship on the `next` tag. `canary` releases prove the tokenless npm trusted-publishing path and should not be used as an API contract.
+The first public API will ship on the `next` dist-tag as an exact `0.1.0-alpha.*` release. `canary` releases prove the tokenless npm trusted-publishing path and should not be used as an API contract.
 
 ```bash
 npm install qscriptions@next
@@ -30,6 +30,6 @@ Published packages are built in public GitHub Actions and tested as exact tarbal
 
 ## Contributing
 
-Start with [CONTRIBUTING.md](CONTRIBUTING.md). Security reports belong in GitHub private vulnerability reporting, not public issues.
+Start with [CONTRIBUTING.md](CONTRIBUTING.md), see [CHANGELOG.md](CHANGELOG.md) for release notes, and use [ROADMAP.md](ROADMAP.md) to distinguish the frozen-QPET release from deferred Foundry work. Security reports belong in GitHub private vulnerability reporting, not public issues.
 
 MIT licensed. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for fixture provenance.

@@ -12,9 +12,12 @@ npm ci --ignore-scripts
 npm run check
 ```
 
-`npm run check` is the local equivalent of the required core CI gate. It runs
-the build, strict type checks, tests, and coverage without network or wallet
-access.
+`npm run check` is the offline portion of the required core CI gate. It runs the
+build, strict type checks, tests, and coverage without network or wallet access.
+
+CI also compares the TypeScript decoder against an exact-pinned copy of the
+historical Python QPET oracle. That cross-repository check intentionally remains
+outside the offline local command.
 
 To verify the exact archive consumers will receive:
 
@@ -41,4 +44,5 @@ Repository-only fixtures may contain publicly available inscription data needed
 for parity tests. They must remain excluded from the npm tarball.
 
 By contributing, you agree that your contribution is licensed under the
-repository's MIT License and that you will follow the Code of Conduct.
+repository's MIT License and that you will follow the
+[Code of Conduct](CODE_OF_CONDUCT.md).
