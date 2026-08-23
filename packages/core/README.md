@@ -2,7 +2,7 @@
 
 Dependency-free, byte-exact verification for the frozen QPET inscription format used by the Qbit Genesis mascot.
 
-The `0.0.0-canary.*` line exists only to reserve the package and prove npm trusted publishing before the public API is frozen. The manually bootstrapped `canary.0` has no provenance; `canary.1` is the first OIDC/provenance proof. Install an `0.1.0-alpha.*` or later release for the decoder.
+The `0.0.0-canary.*` line exists only to reserve the package and prove npm trusted publishing before the public API is frozen. The manually bootstrapped `canary.0` has no provenance; `canary.2` is the first successful OIDC/provenance proof. Install an `0.1.0-alpha.*` or later release for the decoder.
 
 ```bash
 npm install qscriptions@next
